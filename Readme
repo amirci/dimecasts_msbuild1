@@ -1,0 +1,12 @@
+Example code for Dimecasts episode about MsBuild organization
+Nov 2010
+
+Structure
+  -- main: Main folder with Movie library (C#)
+  -- test: Tests for the library
+  -- lib: Dependencies to be used in the .sln
+  -- tools: Tools used to build, run, deploy, etc.
+  Rakefile : rake tasks to wrap msbuild tasks
+  MavenThought.MovieLibrary.msbuild : Main msbuild file with tasks to build, test, deploy, etc.
+  
+

@@ -1,0 +1,203 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+	<PropertyGroup>
+		<ProjectName>MovieLibrary</ProjectName>
+		<ExportFolder>\temp\Export\$(ProjectName)</ExportFolder>
+		<BuildFolder>\temp\Builds\$(ProjectName)\Latest</BuildFolder>
+		<Major>0</Major>
+		<Minor>1</Minor>
+		<Build>0</Build>
+		<Configuration Condition="$(Configuration) == ''">Debug</Configuration>
+	</PropertyGroup>
+  
+	<ItemGroup>
+		<Solutions Include="**\*.sln"/>
+	</ItemGroup>
+
+	<PropertyGroup>
+		<Configuration Condition="$(Configuration) == ''">Debug</Configuration>
+	</PropertyGroup>
+	
+	<Target Name="Build">
+		<MSBuild Projects="@(Solutions)" Properties="Configuration=$(Configuration)"/>
+	</Target>
+
+	<Target Name="Clean">
+		<MSBuild Targets="Clean" Projects="@(Solutions)" Properties="Configuration=Release"/>
+		<MSBuild Targets="Clean" Projects="@(Solutions)" Properties="Configuration=Debug"/>
+		<ItemGroup>
+		  <MainDlls Include="main\**\*.dll"/>
+		  <TestDlls Include="test\**\*.dll"/>
+		</ItemGroup>
+		<Delete Files="@(MainDlls)"/>
+		<Delete Files="@(TestDlls)"/>
+	</Target>
+
+	<Target Name="Rebuild">
+		<CallTarget Targets="Clean;Build"/>
+	</Target>
+
+	<PropertyGroup>
+		<MSBuildCommunityTasksPath>$(MSBuildProjectDirectory)\tools\MsBuildCommunityTasks</MSBuildCommunityTasksPath>
+	</PropertyGroup>
+	
+    <UsingTask TaskName="Gallio.MSBuildTasks.Gallio" AssemblyFile="$(MSBuildProjectDirectory)\tools\Gallio\bin\Gallio.MSBuildTasks.dll"/>
+    
+	<Import Project="$(MSBuildProjectDirectory)\tools\MsBuildCommunityTasks\MsBuild.Community.Tasks.Targets"/>
+
+	<Target Name="TestAll">
+		<CallTarget Targets="Build;Test"/>
+	</Target>
+	
+	<Target Name="Test">
+		<ItemGroup>
+		  <TestAssemblies Include="test\**\bin\$(Configuration)\*.Tests.dll" 
+						  Exclude="test\**\*.Acceptance.Tests.dll"/>
+		</ItemGroup>
+		<Gallio Files="@(TestAssemblies)" IgnoreFailures="true">
+		  <Output TaskParameter="ExitCode" PropertyName="ExitCode" />
+		</Gallio>
+		<Error Condition="$(ExitCode) == 1" Text="Tests execution failed!"/>
+	</Target>
+
+  	<Target Name="TestAssembly">
+		<ItemGroup>
+			<TestAssemblies Include="test\**\bin\$(Configuration)\*$(Testee).Tests.dll" Exclude="test\**\*.Acceptance.Tests.dll"/>
+		</ItemGroup>
+		<Message Text="The testee found for $(Testee) is @(TestAssemblies)"/>
+		<Gallio IgnoreFailures="true" Files="@(TestAssemblies)">
+		  <Output TaskParameter="ExitCode" PropertyName="ExitCode"/>
+		</Gallio>
+		<Error Text="Tests execution failed" Condition="'$(ExitCode)' == 1" />
+	</Target>
+  
+	<Target Name="TestClass">
+		<ItemGroup>
+		  <TestAssemblies Include="test\**\bin\$(Configuration)\*.Tests.dll"
+						  Exclude="test\**\bin\$(Configuration)\*.Acceptance.Tests.dll"/>
+		</ItemGroup>
+		<Message Text="Testing @(TestAssemblies)"/>
+		<Gallio IgnoreFailures="true" Files="@(TestAssemblies)" ReportTypes="Text" ReportNameFormat="mbunit"
+				Filter="Type:$(Testee)" Verbosity="Quiet">
+		  <Output TaskParameter="ExitCode" PropertyName="ExitCode"/>
+		</Gallio>
+		<Error Text="Tests execution failed" Condition="'$(ExitCode)' == 1" />
+	</Target>
+	
+	<Target Name="StyleCop">
+	
+		<ItemGroup>
+			<AllSolutions Include="*.sln"/>
+		</ItemGroup>
+		
+		<PropertyGroup>
+			<ToolsDir>$(MSBuildProjectDirectory)\tools</ToolsDir>
+			<OutputDir>$(MSBuildProjectDirectory)\Output</OutputDir>
+			<Xslt>$(ToolsDir)\msxsl.exe</Xslt>
+			<StyleCopSln Condition="$(StyleCopSln) == ''">@(AllSolutions)</StyleCopSln>
+			<StyleCopCmd>tools\stylecopcmd\StyleCopCmd -sf $(StyleCopSln) -ifp AssemblyInfo.cs -of output\stylecop.xml -sc Settings.StyleCop -tf tools\StyleCopCmd\StyleCopReport.xsl</StyleCopCmd>
+			<XsltCmd>"$(Xslt)" "$(OutputDir)\stylecop.violations.xml" "$(ToolsDir)\stylecopcmd\ViolationsReport.xsl" -o "$(OutputDir)\StyleCop.Violations.html"</XsltCmd>
+		</PropertyGroup>
+		
+		<MakeDir Directories="$(OutputDir)"/>
+
+		<!-- Run the StyleCopCmd from tools -->
+		<Exec Command="$(StyleCopCmd)"  />
+		<Exec Command="$(XsltCmd)"/>
+		<XmlQuery XmlFileName="Output\stylecop.violations.xml"
+				  XPath = "count(/StyleCopViolations/Violation[@RuleId != 'SA0102'])">
+			<Output TaskParameter="Values" PropertyName="OtherViolations" />
+		</XmlQuery>
+		<Message Text="Found $(OtherViolations) Violations"/>
+		<Error Text="Stylecop Failed! Please check output\stylecop.violations.html!" Condition="$(OtherViolations) != 0"/>
+	</Target>
+
+	<!-- Deploy -->
+	<PropertyGroup>
+		<MSBuildCommunityTasksPath>$(MSBuildProjectDirectory)\tools\MSBuildCommunityTasks</MSBuildCommunityTasksPath>
+		<DeployFolder Condition="$(DeployFolder) == ''">\temp\Builds\$(ProjectName)</DeployFolder>
+	</PropertyGroup>
+	
+	<Import Project="$(MSBuildProjectDirectory)\tools\MSBuildCommunityTasks\MSBuild.Community.Tasks.Targets"/>
+
+	<Target Name="Deploy">
+		<SvnVersion LocalPath="$(MSBuildProjectDirectory)" ToolPath="tools\svn" Condition="'$(Revision)' == ''">
+		  <Output TaskParameter="Revision" PropertyName="Revision" />
+		</SvnVersion>
+
+		<PropertyGroup>
+			<ExportProject>$(MSBuildProjectFile)</ExportProject>
+		</PropertyGroup>
+
+		<MSBuild Projects="$(ExportProject)" 
+				 Targets="UpdateAssemblyVersion;Build;Test" 
+				 Properties="Configuration=Release;Revision=$(Revision)"/>
+	
+		<MakeDir Directories="$(DeployFolder)"/>
+
+		<Message Text="Deploying to $(DeployFolder) "/>
+		
+		<MSBuild Projects="$(ExportProject)" Targets="DeployZipFile" 
+		         Properties="Project=MavenThought.Commons 2.0\main\MavenThought.Commons;Revision=$(Revision);Deploy=MavenThought.Commons 2.0"/>
+
+		<MSBuild Projects="$(ExportProject)" Targets="DeployZipFile" 
+		         Properties="Project=MavenThought.Commons 3.5\main\MavenThought.Commons.WPF;Revision=$(Revision);Deploy=MavenThought.Commons 3.5"/>
+		
+		<MSBuild Projects="$(ExportProject)" Targets="DeployZipFile" 
+		         Properties="Project=MavenThought.Commons.Testing\main\MavenThought.Commons.Testing;Revision=$(Revision);Deploy=MavenThought.Commons.Testing"/>
+	</Target>
+
+	<Target Name="UpdateAssemblyVersion">
+		<SvnVersion LocalPath="$(MSBuildProjectDirectory)" ToolPath="tools\svn" 
+					Condition="'$(Revision)' == ''">
+			<Output TaskParameter="Revision" PropertyName="Revision" />
+		</SvnVersion>
+
+		<PropertyGroup>
+			<Version Condition="$(Version) == ''">$(Major).$(Minor).$(Build).$(Revision)</Version>
+		</PropertyGroup>
+
+		<ItemGroup>
+		  <AssemblyFiles Include=".\**\AssemblyInfo.cs"/>
+		</ItemGroup>
+
+		<Message Text="Updating assemblies to Version: $(Version)"/>
+
+		<FileUpdate Files="@(AssemblyFiles)"
+					Regex="(\d+)\.(\d+)\.(\d+)\.(\d+)"
+					ReplacementText="$(Version)" />
+	</Target>  
+	
+	<Target Name="DeployZipFile">
+		<ItemGroup>
+		  <SourceFiles Include="$(Project)\**\bin\Release\*.dll"/>
+		</ItemGroup>
+
+		<SvnVersion LocalPath="." ToolPath="tools\svn" Condition="'$(Revision)' == ''">
+		  <Output TaskParameter="Revision" PropertyName="Revision" />
+		</SvnVersion>
+
+		<PropertyGroup>
+		  <DeployFileName Condition="'$Deploy' == ''">$(Project)</DeployFileName>
+		  <DeployFileName Condition="'$Deploy' != ''">$(Deploy)</DeployFileName>
+		  <Version Condition="$(Version) == ''">$(Major).$(Minor).$(Build).$(Revision)</Version>
+		  <TempFolder>$(DeployFolder)\temp</TempFolder>
+		</PropertyGroup>
+	
+		<RemoveDir Directories="$(TempFolder)"/>
+		
+		<Copy SourceFiles="@(SourceFiles)" DestinationFolder="$(TempFolder)">
+			<Output TaskParameter="CopiedFiles" PropertyName="Copied"/>
+		</Copy>
+    
+		<Message Text="Copied files $(Copied)"/>
+    
+		<Zip Files="$(Copied)"
+	         ZipFileName="$(DeployFolder)\$(Version)\$(DeployFileName)-$(Version).zip"
+	         WorkingDirectory="$(TempFolder)"/>
+			 
+		<RemoveDir Directories="$(TempFolder)"/>
+	</Target>
+	
+</Project>
