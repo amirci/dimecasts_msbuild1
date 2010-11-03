@@ -5,12 +5,12 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("MediaLibrary")]
+[assembly: AssemblyTitle("MavenThought.MovieLibrary")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("eXPerience")]
-[assembly: AssemblyProduct("MediaLibrary")]
-[assembly: AssemblyCopyright("Copyright © eXPerience 2009")]
+[assembly: AssemblyCompany("MavenThought Inc.")]
+[assembly: AssemblyProduct("MavenThought.MovieLibrary")]
+[assembly: AssemblyCopyright("Copyright © MavenThought Inc. 2010")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
