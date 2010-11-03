@@ -11,6 +11,7 @@
 		<Configuration Condition="$(Configuration) == ''">Debug</Configuration>
 	</PropertyGroup>
   
+    <!-- Build -->
 	<ItemGroup>
 		<Solutions Include="**\*.sln"/>
 	</ItemGroup>
@@ -38,6 +39,7 @@
 		<CallTarget Targets="Clean;Build"/>
 	</Target>
 
+	<!-- Test -->
 	<PropertyGroup>
 		<MSBuildCommunityTasksPath>$(MSBuildProjectDirectory)\tools\MsBuildCommunityTasks</MSBuildCommunityTasksPath>
 	</PropertyGroup>
@@ -85,6 +87,7 @@
 		<Error Text="Tests execution failed" Condition="'$(ExitCode)' == 1" />
 	</Target>
 	
+	<!-- Stylecop -->
 	<Target Name="StyleCop">
 	
 		<ItemGroup>
