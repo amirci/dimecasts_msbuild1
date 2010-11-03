@@ -2,7 +2,7 @@
 <Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 
 	<PropertyGroup>
-		<ProjectName>MovieLibrary</ProjectName>
+		<ProjectName>MavenThought.MovieLibrary</ProjectName>
 		<ExportFolder>\temp\Export\$(ProjectName)</ExportFolder>
 		<BuildFolder>\temp\Builds\$(ProjectName)\Latest</BuildFolder>
 		<Major>0</Major>
@@ -119,13 +119,16 @@
 		<DeployFolder Condition="$(DeployFolder) == ''">\temp\Builds\$(ProjectName)</DeployFolder>
 	</PropertyGroup>
 	
-	<Import Project="$(MSBuildProjectDirectory)\tools\MSBuildCommunityTasks\MSBuild.Community.Tasks.Targets"/>
+	<UsingTask AssemblyFile="$(MSBuildProjectDirectory)\tools\MSBuild\GitVersion.dll"
+				TaskName="GitVersion"/>
 
 	<Target Name="Deploy">
-		<SvnVersion LocalPath="$(MSBuildProjectDirectory)" ToolPath="tools\svn" Condition="'$(Revision)' == ''">
-		  <Output TaskParameter="Revision" PropertyName="Revision" />
-		</SvnVersion>
-
+		<GitVersion ToolPath="$(MSBuildProjectDirectory)\tools\git\bin\">
+			<Output TaskParameter="LastCommit" PropertyName="Revision" />
+			<Output TaskParameter="Description" PropertyName="RevisionDescription" />
+		</GitVersion>
+  
+		<Message Text="####### Revision number $(Revision) #######"/>
 		<PropertyGroup>
 			<ExportProject>$(MSBuildProjectFile)</ExportProject>
 		</PropertyGroup>
@@ -137,25 +140,15 @@
 		<MakeDir Directories="$(DeployFolder)"/>
 
 		<Message Text="Deploying to $(DeployFolder) "/>
-		
-		<MSBuild Projects="$(ExportProject)" Targets="DeployZipFile" 
-		         Properties="Project=MavenThought.Commons 2.0\main\MavenThought.Commons;Revision=$(Revision);Deploy=MavenThought.Commons 2.0"/>
 
-		<MSBuild Projects="$(ExportProject)" Targets="DeployZipFile" 
-		         Properties="Project=MavenThought.Commons 3.5\main\MavenThought.Commons.WPF;Revision=$(Revision);Deploy=MavenThought.Commons 3.5"/>
-		
-		<MSBuild Projects="$(ExportProject)" Targets="DeployZipFile" 
-		         Properties="Project=MavenThought.Commons.Testing\main\MavenThought.Commons.Testing;Revision=$(Revision);Deploy=MavenThought.Commons.Testing"/>
+		<MSBuild Projects="$(ExportProject)" 
+				 Targets="DeployZipFile" 
+		         Properties="Project=$(ProjectName);Revision=$(Revision);Deploy=$(ProjectName)"/>
 	</Target>
 
 	<Target Name="UpdateAssemblyVersion">
-		<SvnVersion LocalPath="$(MSBuildProjectDirectory)" ToolPath="tools\svn" 
-					Condition="'$(Revision)' == ''">
-			<Output TaskParameter="Revision" PropertyName="Revision" />
-		</SvnVersion>
-
 		<PropertyGroup>
-			<Version Condition="$(Version) == ''">$(Major).$(Minor).$(Build).$(Revision)</Version>
+			<Version Condition="$(Version) == ''">$(Major).$(Minor).$(Build).0</Version>
 		</PropertyGroup>
 
 		<ItemGroup>
@@ -165,8 +158,12 @@
 		<Message Text="Updating assemblies to Version: $(Version)"/>
 
 		<FileUpdate Files="@(AssemblyFiles)"
-					Regex="(\d+)\.(\d+)\.(\d+)\.(\d+)"
-					ReplacementText="$(Version)" />
+				   Regex="(\d+)\.(\d+)\.(\d+)\.(\d+)"
+				   ReplacementText="$(Version)" />
+
+		<FileUpdate Files="@(AssemblyFiles)"
+				   Regex="AssemblyTitle\(.*\)"
+				   ReplacementText="AssemblyTitle(%22MovieLibrary: Latest commit $(Revision)%22)" />
 	</Target>  
 	
 	<Target Name="DeployZipFile">
@@ -174,14 +171,10 @@
 		  <SourceFiles Include="$(Project)\**\bin\Release\*.dll"/>
 		</ItemGroup>
 
-		<SvnVersion LocalPath="." ToolPath="tools\svn" Condition="'$(Revision)' == ''">
-		  <Output TaskParameter="Revision" PropertyName="Revision" />
-		</SvnVersion>
-
 		<PropertyGroup>
 		  <DeployFileName Condition="'$Deploy' == ''">$(Project)</DeployFileName>
 		  <DeployFileName Condition="'$Deploy' != ''">$(Deploy)</DeployFileName>
-		  <Version Condition="$(Version) == ''">$(Major).$(Minor).$(Build).$(Revision)</Version>
+		  <Version Condition="$(Version) == ''">$(Major).$(Minor).$(Build)_$(Revision)</Version>
 		  <TempFolder>$(DeployFolder)\temp</TempFolder>
 		</PropertyGroup>
 	
